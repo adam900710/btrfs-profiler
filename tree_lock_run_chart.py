@@ -1,9 +1,10 @@
-#!/usr/bin/python3
+#!/usr/bin/python2
 # @lint-avoid-python-3-compatibility-imports
 
 from __future__ import print_function
 from bcc import BPF
 from sys import stderr
+from collections import defaultdict
 
 text_bpf = '''
 #include <uapi/linux/ptrace.h>
@@ -54,27 +55,6 @@ def get_owner_str(owner):
     return 'OTHER_ROOTS'
 
 
-'''
-Sparse dict where access to hole (non-exist) key will return 0
-other than raise an exception
-'''
-class sparse_dict:
-    data_dict = {}
-    def __init__(self):
-        self.data_dict = {}
-
-    def __getitem__(self, key):
-        if key not in self.data_dict:
-            return 0
-        return self.data_dict[key]
-
-    def __setitem__(self, key, value):
-        self.data_dict[key] = value;
-
-    def __contains__(self, key):
-        return (key in self.data_dict)
-
-
 def process_event(cpu, data, size):
     event = b["events"].event(data)
 
@@ -97,7 +77,11 @@ def process_event(cpu, data, size):
         start_ns = max(cur, event.start_ns)
 
         if cur not in results:
-            results[cur] = sparse_dict()
+            results[cur] = {}
+            results[cur]['SUBVOL'] = 0
+            results[cur]['TREE_ROOT'] = 0
+            results[cur]['EXTENT_ROOT'] = 0
+            results[cur]['OTHER_ROOTS'] = 0
 
         results[cur][get_owner_str(event.owner)] += end_ns - start_ns
         cur += time_interval
@@ -130,7 +114,7 @@ time_interval = 100 * 1000 * 1000
 # @results is a 2 dimension dict.
 # [<aligned_timetamp>][<owner_str>] to access, no need to
 # worry about non-exist key.
-results = sparse_dict()
+results = defaultdict(dict)
 
 # To catch the first event time stamp
 start_time_set = False
@@ -147,4 +131,4 @@ while 1:
         b.perf_buffer_poll()
     except KeyboardInterrupt:
         print_results()
-exit()
+        exit()
