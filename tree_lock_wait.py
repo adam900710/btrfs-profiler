@@ -1,10 +1,11 @@
 #!/usr/bin/python2
 # @lint-avoid-python-3-compatibility-imports
 #
-# # ./tree_lock_wait.py [-t <time_interval>]
+# # ./tree_lock_wait.py [-t <time_interval>] [-f <fsid>]
 #
 # <time_interval>: Sampling time interval, either in ns
 #                  or with unit like "100ms" (default value)
+# <fsid>:          Only catch events from fsid
 #
 # output will be csv format.
 
@@ -13,6 +14,8 @@ from bcc import BPF
 from sys import stderr
 from sys import argv
 from collections import defaultdict
+import uuid
+import binascii
 import getopt
 
 text_bpf = '''
@@ -91,8 +94,16 @@ def process_event(cpu, data, size):
     global end_time
     global time_interval
     global results 
+    global fsid
+    global fsid_set
 
     cur = int(event.start_ns / time_interval) * time_interval
+
+    if fsid_set:
+        current_fsid = uuid.UUID(binascii.hexlify(bytearray(event.fsid)))
+        if current_fsid != fsid:
+            return;
+
     if start_time_set:
         start_time = min(cur, start_time)
     else:
@@ -148,11 +159,13 @@ results = defaultdict(dict)
 start_time_set = False
 start_time = False
 
+fsid_set = False
+
 end_time = 0
 
 
 try:
-    opts, args = getopt.getopt(argv[1:], 't:')
+    opts, args = getopt.getopt(argv[1:], 't:f:')
 except getopt.GetoptError as err:
     print(str(err), file=stderr)
     usage()
@@ -163,6 +176,9 @@ if len(args) != 0:
 for opt,arg in opts:
     if opt == '-t':
         time_interval = int(arg)
+    if opt == '-f':
+        fsid = uuid.UUID(arg)
+        fsid_set = True
 
 b = BPF(text = text_bpf)
 b["events"].open_perf_buffer(process_event, page_cnt=64)
