@@ -7,7 +7,7 @@ btrfs performance analyse tools.
 License: GPLv2
 
 This repository hosts following utilities:
-* **tree_lock_run_chart.py** &mdash; real time run chart visualizer for tree locks
+* **tree_lock_wait.py** &mdash; real time tree block locking wait time profiler
 
 Prerequisite
 ------------

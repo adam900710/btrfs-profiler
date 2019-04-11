@@ -1,7 +1,7 @@
 #!/usr/bin/python2
 # @lint-avoid-python-3-compatibility-imports
 #
-# # ./tree_lock_run_chart.py [-t <time_interval>]
+# # ./tree_lock_wait.py [-t <time_interval>]
 #
 # <time_interval>: Sampling time interval, either in ns
 #                  or with unit like "100ms" (default value)
