@@ -1,10 +1,19 @@
 #!/usr/bin/python2
 # @lint-avoid-python-3-compatibility-imports
+#
+# # ./tree_lock_run_chart.py [-t <time_interval>]
+#
+# <time_interval>: Sampling time interval, either in ns
+#                  or with unit like "100ms" (default value)
+#
+# output will be csv format.
 
 from __future__ import print_function
 from bcc import BPF
 from sys import stderr
+from sys import argv
 from collections import defaultdict
+import getopt
 
 text_bpf = '''
 #include <uapi/linux/ptrace.h>
@@ -38,10 +47,29 @@ TRACEPOINT_PROBE(btrfs, btrfs_tree_lock)
 }
 '''
 
+def usage():
+    print("%s [-t <time_interval>]" % (argv[0]))
+    print("<time_interval> can be either in ns, or with unit like \"100ms\"")
+    exit(1)
+
 def is_fstree(owner):
     if owner == 5 or (owner >= 256 and owner <= (2 ** 64 - 256)):
         return True
     return False
+
+def parse_time_interval(time_str):
+    try:
+        if ('s' not in time_str) or ('ns' in time_str):
+            return int(time_str.split('ns')[0])
+        if 'us' in time_str:
+            return int(time_str.split('us')[0]) * 1000
+        if 'ms' in time_str:
+            return int(time_str.split('ms')[0]) * 1000 * 1000
+        if 's' in time_str:
+            return int(time_str.split('s')[0]) * 1000 * 1000 * 1000
+    except ValueError as err:
+        print(str(err))
+        usage()
 
 # TODO: Don't use such classification while have a good idea to output
 # all the needed info
@@ -94,7 +122,7 @@ def print_results():
     print(file=stderr)
     if not start_time_set:
         print("no data", file=stderr)
-        exit()
+        exit(0)
     cur = start_time
     print("%s,%s,%s,%s,%s" % ("timestamp", "root", "extent", "subvol", "other"))
     while cur < end_time:
@@ -123,6 +151,19 @@ start_time = False
 end_time = 0
 
 
+try:
+    opts, args = getopt.getopt(argv[1:], 't:')
+except getopt.GetoptError as err:
+    print(str(err), file=stderr)
+    usage()
+
+if len(args) != 0:
+    usage()
+
+for opt,arg in opts:
+    if opt == '-t':
+        time_interval = int(arg)
+
 b = BPF(text = text_bpf)
 b["events"].open_perf_buffer(process_event, page_cnt=64)
 print("start recording", file=stderr)
@@ -131,4 +172,4 @@ while 1:
         b.perf_buffer_poll()
     except KeyboardInterrupt:
         print_results()
-        exit()
+        exit(0)
