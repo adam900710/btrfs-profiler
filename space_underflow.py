@@ -57,7 +57,7 @@ TRACEPOINT_PROBE(btrfs, ##FUNC_NAME##)
 '''
 
 usage_str='''
-# ./tree_lock_wait.py [-f <fsid>] [-t data|metadata|system] [-o <output>]
+# %s [-f <fsid>] [-t data|metadata|system] [-o <output>]
                       [-b] <member>
 
 
@@ -152,14 +152,14 @@ def process_event(cpu, data, size):
     fs_dict[str(fsid)][cur_type].append(tmp)
     fs_dict[str(fsid)]["ALL"].append(tmp)
 
-def print_one_event(fd, event, backtrace=False):
+def print_one_event(output, event, backtrace=False):
     print("timestamp=%u type=%s old=%u diff=%u" % (event["timestamp"], event["type"], \
-            event["old"], event["diff"]), file=fd)
+            event["old"], event["diff"]), file=output)
     if backtrace:
-        print("backtrace:", file=fd)
+        print("backtrace:", file=output)
         for sym in event["stack"]:
-            print("  %s" % sym, file=fd)
-        print(file=fd)
+            print("  %s" % sym, file=output)
+        print(file=output)
 
 def report_underflow(fsid, result_list, name):
     if len(result_list) == 0:
@@ -211,7 +211,6 @@ def print_one_fs(fsid, results):
         for i in results["ALL"]:
             print_one_event(stdout, i)
         return
-    fd = open(output, mode="a")
     if len(results) != 0:
         print("fsid: %s" % (fsid), file=fd)
     for i in results["ALL"]:
@@ -221,7 +220,6 @@ def print_one_fs(fsid, results):
     report_underflow(fsid, results["DATA"], "DATA")
     report_underflow(fsid, results["METADATA"], "METADATA")
     report_underflow(fsid, results["SYSTEM"], "SYSTEM")
-    fd.close()
 
 try:
     opts, args = getopt.getopt(argv[1:], "f:t:o:")
@@ -246,6 +244,8 @@ for opt,arg in opts:
 text_bpf = text_bpf.replace("##FUNC_NAME##", target_func)
 b = BPF(text = text_bpf)
 
+if output:
+    fd = open(output, mode="w")
 b["events"].open_perf_buffer(process_event, page_cnt=64)
 stack_traces = b.get_table("stack_traces")
 print("start recording", file=stderr)
