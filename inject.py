@@ -280,7 +280,7 @@ if len(target["parameters"]):
 else:
     c_src = c_src.replace("##PARAMETERS##", '')
 c_src = c_src.replace("##RETURN_VALUE##", target["return_value"])
-c_src = c_src.replace("##PROBABILITY##", str(int(probability * (1 << 32 - 1))))
+c_src = c_src.replace("##PROBABILITY##", str(int(probability * ((1 << 32) - 1))))
 c_src = c_src.replace("##EXTRA_FILTER##", extra_filter)
 
 if verbose:
